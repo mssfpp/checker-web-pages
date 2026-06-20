@@ -5,7 +5,10 @@ import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 chromium.use(StealthPlugin());
 
-const config = JSON.parse(readFileSync("./config.json", "utf-8"));
+const configFile = process.argv.includes("--config")
+  ? process.argv[process.argv.indexOf("--config") + 1]
+  : "./config.json";
+const config = JSON.parse(readFileSync(configFile, "utf-8"));
 const NTFY_BASE_URL = "https://ntfy.sh";
 const channel = config.ntfy.channel;
 const TIMEOUT_MS = 30000;

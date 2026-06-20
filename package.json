@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node index.js --config ./config.test.json"
   },
   "dependencies": {
     "node-fetch": "^3.3.2",
