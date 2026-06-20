@@ -56,6 +56,7 @@ Modifica `config.json`:
 | `notifyOnce` | ❌ | `true` | Se `true`, non reinvia la notifica finché il termine non scompare e ricompare |
 | `resendAfterHours` | ❌ | `3` | Se il termine è ancora presente, reinvia dopo N ore |
 | `channel` | ❌ | canale globale | Canale ntfy per questo check (sovrascrive pagina e globale) |
+| `clickUrl` | ❌ | URL della pagina | URL che si apre toccando la notifica su ntfy |
 | `silenceHours` | ❌ | nessuno | Fascia oraria silenziosa, es. `{"from": 23, "to": 8}` — funziona anche a cavallo della mezzanotte |
 | `regex` | ❌ | `false` | Se `true`, interpreta `term` come espressione regolare |
 | `regexFlags` | ❌ | `"i"` | Flag regex (es. `"i"`, `"is"`, `"gim"`) — usato solo se `regex: true` |
@@ -116,6 +117,13 @@ Digita questi comandi in una sessione Claude Code aperta nella directory del pro
 - `/modifica-notifica` — modifica un check esistente
 - `/rimuovi-notifica` — rimuove un check esistente
 - `/lista-notifiche` — mostra tutte le notifiche configurate in formato leggibile
+
+### Opzioni a livello di pagina
+
+| Campo | Default | Descrizione |
+|-------|---------|-------------|
+| `channel` | canale globale | Canale ntfy per tutti i check della pagina |
+| `screenshot` | `false` | Se `true`, allega uno screenshot della pagina alla notifica. Abilita automaticamente Playwright anche per siti non-TicketOne |
 
 ### Gerarchia canali ntfy
 

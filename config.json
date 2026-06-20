@@ -9,6 +9,7 @@
   "pages": [
     {
       "url": "https://www.teatrogalleria.it/",
+      "screenshot": true,
       "checks": [
         {
           "term": "barbero",
@@ -21,6 +22,7 @@
     },
     {
       "url": "https://www.ticketone.it/artist/alessandro-barbero/",
+      "screenshot": true,
       "checks": [
         {
           "term": "legnano",
@@ -33,6 +35,7 @@
     },
     {
       "url": "https://www.ticketone.it/venue/teatro-galleria-16242/",
+      "screenshot": true,
       "checks": [
         {
           "term": "barbero",

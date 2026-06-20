@@ -108,38 +108,52 @@ function isSilenced(silenceHours) {
     : hour >= from || hour < to;
 }
 
-function needsPlaywright(url) {
-  return USE_PLAYWRIGHT_FOR.some((domain) => url.includes(domain));
+function needsPlaywright(pageConfig) {
+  return pageConfig.screenshot || USE_PLAYWRIGHT_FOR.some((domain) => pageConfig.url.includes(domain));
 }
 
-async function sendNotification({ message, title, priority = "default", tags, channel }) {
+async function sendNotification({ message, title, priority = "default", tags, channel, clickUrl, screenshot }) {
   if (DRY_RUN) {
-    console.log(`[dry-run] Notifica → ${title ?? "(no title)"}: ${message}`);
+    console.log(`[dry-run] Notifica → ${title ?? "(no title)"}: ${message}${clickUrl ? ` [link: ${clickUrl}]` : ""}${screenshot ? " [con screenshot]" : ""}`);
     return;
   }
-  const headers = { "Content-Type": "text/plain" };
-  if (title) headers["Title"] = title;
-  if (priority) headers["Priority"] = priority;
-  if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
 
-  const res = await fetch(`${NTFY_BASE_URL}/${channel ?? defaultChannel}`, {
-    method: "POST",
-    headers,
-    body: message,
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!res.ok) {
-    console.error(`Errore invio notifica: ${res.status} ${res.statusText}`);
+  const ch = channel ?? defaultChannel;
+  const ntfyUrl = `${NTFY_BASE_URL}/${ch}`;
+  const signal = AbortSignal.timeout(15000);
+
+  if (screenshot) {
+    // Invia screenshot come allegato, messaggio nell'header
+    const headers = { "Filename": "screenshot.png", "Content-Type": "image/png" };
+    if (title) headers["Title"] = title;
+    if (message) headers["Message"] = message;
+    if (priority) headers["Priority"] = priority;
+    if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
+    if (clickUrl) headers["Click"] = clickUrl;
+
+    const res = await fetch(ntfyUrl, { method: "POST", headers, body: screenshot, signal });
+    if (!res.ok) console.error(`Errore invio notifica con screenshot: ${res.status} ${res.statusText}`);
+  } else {
+    const headers = { "Content-Type": "text/plain" };
+    if (title) headers["Title"] = title;
+    if (priority) headers["Priority"] = priority;
+    if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
+    if (clickUrl) headers["Click"] = clickUrl;
+
+    const res = await fetch(ntfyUrl, { method: "POST", headers, body: message, signal });
+    if (!res.ok) console.error(`Errore invio notifica: ${res.status} ${res.statusText}`);
   }
 }
 
 // --- Fetch ---
 
-async function fetchWithPlaywright(url, browser) {
+async function fetchWithPlaywright(url, browser, takeScreenshot = false) {
   const page = await browser.newPage();
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: TIMEOUT_MS });
-    return await page.content();
+    const html = await page.content();
+    const screenshot = takeScreenshot ? await page.screenshot({ type: "png", fullPage: false }) : null;
+    return { html, screenshot };
   } finally {
     await page.close();
   }
@@ -155,20 +169,20 @@ async function fetchWithHttp(url) {
     },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
+  return { html: await res.text(), screenshot: null };
 }
 
 // --- Controllo pagina ---
 
 async function checkPage(pageConfig, browser, state) {
-  const { url, checks, channel: pageChannel } = pageConfig;
+  const { url, checks, channel: pageChannel, screenshot: pageScreenshot } = pageConfig;
   const errorKey = stateKey(url, "__error__");
-  let html;
+  let html, screenshot;
 
   try {
-    html = needsPlaywright(url)
-      ? await fetchWithPlaywright(url, browser)
-      : await fetchWithHttp(url);
+    ({ html, screenshot } = needsPlaywright(pageConfig)
+      ? await fetchWithPlaywright(url, browser, !!pageScreenshot)
+      : await fetchWithHttp(url));
     delete state[errorKey];
   } catch (err) {
     console.error(`[error] Fetch fallito per ${url}: ${err.message}`);
@@ -179,6 +193,7 @@ async function checkPage(pageConfig, browser, state) {
         priority: "high",
         tags: ["warning"],
         channel: pageChannel,
+        clickUrl: url,
       });
       state[errorKey] = { lastNotified: new Date().toISOString() };
     }
@@ -188,7 +203,7 @@ async function checkPage(pageConfig, browser, state) {
   const lowerHtml = html.toLowerCase();
 
   for (const check of checks) {
-    const { message, title, priority, tags, channel: checkChannel, silenceHours } = check;
+    const { message, title, priority, tags, channel: checkChannel, silenceHours, clickUrl } = check;
     const channel = checkChannel ?? pageChannel;
 
     const terms = check.terms
@@ -217,6 +232,8 @@ async function checkPage(pageConfig, browser, state) {
           priority: priority ?? "high",
           tags: tags ?? ["tada"],
           channel,
+          clickUrl: clickUrl ?? url,
+          screenshot,
         });
         state[key] = { lastNotified: new Date().toISOString() };
       } else {

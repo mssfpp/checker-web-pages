@@ -26,7 +26,11 @@ Proponi direttamente un messaggio e titolo coerenti con quelli già esistenti ne
 ### 4. Priorità e canale
 Se tutti i check esistenti usano la stessa priorità e canale, non chiedere — usa quelli e dillo esplicitamente. Chiedi solo se c'è ambiguità.
 
-### 5. Silenzio e resend
+### 5. Screenshot
+Se la pagina non ha già `"screenshot": true`, chiedi: "Vuoi allegare uno screenshot della pagina alla notifica? (sì/no)"
+Se sì, aggiungi `"screenshot": true` alla pagina (non al singolo check).
+
+### 6. Silenzio e resend
 Chiedi solo se l'utente sembra volerlo (es. se lo ha menzionato). Altrimenti applica i default globali dal config (`defaults.resendAfterHours`) senza chiedere.
 
 ## Conferma e salvataggio
