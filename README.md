@@ -9,7 +9,7 @@ Monitora una o più pagine web e invia una notifica su [ntfy](https://ntfy.sh) q
 
 Lo script legge `config.json`, visita ogni URL configurato e cerca i termini specificati nel contenuto della pagina. Se un termine viene trovato, invia una notifica al canale ntfy configurato.
 
-Per i siti protetti da anti-bot (es. TicketOne), usa [Playwright](https://playwright.dev/) con il plugin stealth al posto di una semplice richiesta HTTP.
+Per i siti protetti da anti-bot (es. TicketOne), usa [Playwright](https://playwright.dev/) con il plugin stealth al posto di una semplice richiesta HTTP. Le pagine vengono visitate in parallelo (max 3 alla volta, configurabile).
 
 ## Configurazione
 
@@ -22,11 +22,18 @@ Modifica `config.json`:
   },
   "defaults": {
     "notifyOnce": true,
-    "resendAfterHours": 3
+    "resendAfterHours": 3,
+    "silenceHours": { "from": 23, "to": 8 }
+  },
+  "concurrency": 3,
+  "aggregation": {
+    "enabled": true,
+    "threshold": 4
   },
   "pages": [
     {
       "url": "https://example.com",
+      "screenshot": true,
       "channel": "canale-opzionale-per-pagina",
       "checks": [
         {
@@ -36,6 +43,7 @@ Modifica `config.json`:
           "priority": "high",
           "tags": ["tada"],
           "channel": "canale-opzionale-per-check",
+          "clickUrl": "https://example.com/pagina-specifica",
           "silenceHours": { "from": 23, "to": 8 }
         }
       ]
@@ -43,6 +51,31 @@ Modifica `config.json`:
   ]
 }
 ```
+
+### Opzioni globali (`defaults`)
+
+Valgono per tutti i check, sovrascrivibili sul singolo check:
+
+| Campo | Default | Descrizione |
+|-------|---------|-------------|
+| `notifyOnce` | `true` | Non reinvia la notifica finché il termine non scompare e ricompare |
+| `resendAfterHours` | `3` | Reinvia dopo N ore se la condizione persiste |
+| `silenceHours` | nessuno | Fascia oraria globale silenziosa, es. `{"from": 23, "to": 8}` |
+
+### Opzioni di sistema
+
+| Campo | Default | Descrizione |
+|-------|---------|-------------|
+| `concurrency` | `3` | Numero massimo di pagine visitate in parallelo |
+| `aggregation.enabled` | `false` | Se `true`, aggrega le notifiche quando superano la soglia |
+| `aggregation.threshold` | `4` | Numero di match oltre cui inviare una notifica aggregata invece di tante separate |
+
+### Opzioni a livello di pagina
+
+| Campo | Default | Descrizione |
+|-------|---------|-------------|
+| `channel` | canale globale | Canale ntfy per tutti i check della pagina |
+| `screenshot` | `false` | Se `true`, allega uno screenshot alla notifica. Abilita automaticamente Playwright anche per siti non-TicketOne |
 
 ### Opzioni per ogni check
 
@@ -53,77 +86,15 @@ Modifica `config.json`:
 | `title` | ❌ | `"Checker - termine trovato"` | Titolo della notifica |
 | `priority` | ❌ | `"high"` | Priorità: `default`, `high`, `urgent` |
 | `tags` | ❌ | `["tada"]` | Tag/emoji ntfy (es. `["ticket", "tada"]`) |
-| `notifyOnce` | ❌ | `true` | Se `true`, non reinvia la notifica finché il termine non scompare e ricompare |
-| `resendAfterHours` | ❌ | `3` | Se il termine è ancora presente, reinvia dopo N ore |
-| `channel` | ❌ | canale globale | Canale ntfy per questo check (sovrascrive pagina e globale) |
-| `clickUrl` | ❌ | URL della pagina | URL che si apre toccando la notifica su ntfy |
-| `silenceHours` | ❌ | nessuno | Fascia oraria silenziosa, es. `{"from": 23, "to": 8}` — funziona anche a cavallo della mezzanotte |
+| `channel` | ❌ | canale pagina o globale | Canale ntfy specifico per questo check |
+| `clickUrl` | ❌ | URL della pagina | URL che si apre toccando la notifica |
+| `notifyOnce` | ❌ | da `defaults` | Sovrascrive il default globale per questo check |
+| `resendAfterHours` | ❌ | da `defaults` | Sovrascrive il default globale per questo check |
+| `silenceHours` | ❌ | da `defaults` | Fascia oraria silenziosa per questo check (sovrascrive il globale) |
 | `regex` | ❌ | `false` | Se `true`, interpreta `term` come espressione regolare |
-| `regexFlags` | ❌ | `"i"` | Flag regex (es. `"i"`, `"is"`, `"gim"`) — usato solo se `regex: true` |
+| `regexFlags` | ❌ | `"i"` | Flag regex — usato solo se `regex: true` |
 | `terms` | ❌ | — | Array di termini per ricerca multi-termine (sostituisce `term`) |
 | `condition` | ❌ | `"AND"` | Condizione tra i termini: `AND` (tutti presenti) o `OR` (almeno uno) |
-
-**Esempio regex** — cerca "barbero" solo se vicino a "biglietti" o "vendita":
-
-```json
-{
-  "term": "barbero.{0,100}(biglietti|vendita)",
-  "regex": true,
-  "regexFlags": "is",
-  "message": "Biglietti Barbero trovati!"
-}
-```
-
-> Il flag `"is"` rende la ricerca case-insensitive (`i`) e fa sì che `.` matchi anche i newline (`s`), utile quando il testo è spezzato su più righe nell'HTML.
-
-**Esempio multi-termine AND** — notifica solo se la pagina contiene sia "barbero" che "biglietti":
-
-```json
-{
-  "terms": ["barbero", "biglietti"],
-  "condition": "AND",
-  "message": "Biglietti Barbero trovati!"
-}
-```
-
-**Esempio multi-termine OR** — notifica se trova almeno uno tra i termini:
-
-```json
-{
-  "terms": ["barbero", "alessandro barbero"],
-  "condition": "OR",
-  "message": "Riferimento a Barbero trovato!"
-}
-```
-
-Ogni elemento di `terms` può anche essere un oggetto per usare regex su singoli termini:
-
-```json
-{
-  "terms": [
-    { "term": "barber[oo]", "regex": true, "regexFlags": "i" },
-    "biglietti"
-  ],
-  "condition": "AND",
-  "message": "Trovato!"
-}
-```
-
-## Comandi Claude Code
-
-Digita questi comandi in una sessione Claude Code aperta nella directory del progetto per gestire le notifiche senza modificare il JSON a mano:
-
-- `/aggiungi-notifica` — aggiunge un nuovo check guidato passo passo
-- `/modifica-notifica` — modifica un check esistente
-- `/rimuovi-notifica` — rimuove un check esistente
-- `/lista-notifiche` — mostra tutte le notifiche configurate in formato leggibile
-
-### Opzioni a livello di pagina
-
-| Campo | Default | Descrizione |
-|-------|---------|-------------|
-| `channel` | canale globale | Canale ntfy per tutti i check della pagina |
-| `screenshot` | `false` | Se `true`, allega uno screenshot della pagina alla notifica. Abilita automaticamente Playwright anche per siti non-TicketOne |
 
 ### Gerarchia canali ntfy
 
@@ -133,17 +104,39 @@ ntfy.channel (globale)
         └── check.channel (sovrascrive per il singolo check)
 ```
 
-### Opzioni globali (`defaults`)
+### Esempi
 
-Valgono per tutti i check, sovrascrivibili sul singolo check:
+**Ricerca con regex** — notifica solo se "barbero" è vicino a "biglietti" o "vendita":
+```json
+{
+  "term": "barbero.{0,100}(biglietti|vendita)",
+  "regex": true,
+  "regexFlags": "is",
+  "message": "Biglietti Barbero trovati!"
+}
+```
 
-- `notifyOnce` — evita notifiche ripetute ogni 15 minuti per lo stesso termine
-- `resendAfterHours` — reinvia la notifica se la condizione persiste dopo N ore
+**Multi-termine AND** — notifica solo se la pagina contiene sia "barbero" che "biglietti":
+```json
+{
+  "terms": ["barbero", "biglietti"],
+  "condition": "AND",
+  "message": "Biglietti Barbero trovati!"
+}
+```
+
+**Multi-termine OR** — notifica se trova almeno uno tra i termini:
+```json
+{
+  "terms": ["barbero", "alessandro barbero"],
+  "condition": "OR",
+  "message": "Riferimento a Barbero trovato!"
+}
+```
 
 ### Disabilitare temporaneamente una pagina
 
 Aggiungi `"_disabled": true` alla pagina nel config:
-
 ```json
 {
   "_disabled": true,
@@ -154,23 +147,33 @@ Aggiungi `"_disabled": true` alla pagina nel config:
 
 ### Notifiche automatiche
 
-- **Errore pagina** — se una pagina è irraggiungibile arriva una notifica con priorità `high`. Rispetta `resendAfterHours` per non generare spam in caso di downtime prolungato.
-- **Heartbeat giornaliero** — ogni giorno al primo run arriva un ping "script attivo" con priorità `low`. Utile per accorgersi se GitHub smette di schedulare il workflow.
+- **Errore pagina** — se una pagina è irraggiungibile dopo 3 tentativi, arriva una notifica `high`. Rispetta `resendAfterHours` per non generare spam.
+- **Heartbeat giornaliero** — al primo run del giorno arriva un ping `low` "script attivo". Utile per accorgersi se GitHub smette di schedulare il workflow.
 
 ## Esecuzione locale
 
 ```bash
 npm install
 npx playwright install chromium
-npm start   # usa config.json
-npm test    # usa config.test.json
+npm start                        # usa config.json
+npm start -- --dry-run          # mostra i match senza inviare notifiche
+npm test                         # usa config.test.json
 ```
+
+## Comandi Claude Code
+
+Digita questi comandi in una sessione Claude Code aperta nella directory del progetto:
+
+- `/aggiungi-notifica` — aggiunge un nuovo check guidato passo passo
+- `/modifica-notifica` — modifica un check esistente
+- `/rimuovi-notifica` — rimuove un check esistente
+- `/lista-notifiche` — mostra tutte le notifiche configurate in formato leggibile
 
 ## GitHub Actions
 
 Il workflow `.github/workflows/checker.yml` esegue lo script automaticamente ogni 15 minuti.
 
-> **Nota:** GitHub Actions non garantisce la puntualità esatta dei workflow schedulati. Ritardi di 10-30 minuti sono normali nei momenti di carico elevato sui server GitHub.
+> **Nota:** GitHub Actions non garantisce la puntualità esatta dei workflow schedulati. Ritardi di 10-30 minuti sono normali nei momenti di carico elevato.
 
 Per eseguirlo manualmente: **Actions → Web Page Checker → Run workflow**.
 
