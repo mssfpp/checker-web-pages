@@ -8,12 +8,45 @@
   },
   "pages": [
     {
+      "_comment": "TEST: match trovato + miss",
+      "_disabled": true,
+      "url": "https://www.ticketone.it/venue/teatro-galleria-16242/",
+      "checks": [
+        {
+          "term": "eleazaro",
+          "message": "[TEST] Termine trovato - notifica match funziona",
+          "title": "TEST - match trovato",
+          "priority": "default",
+          "tags": ["white_check_mark"],
+          "notifyOnce": false
+        },
+        {
+          "term": "termine-che-non-esiste-xyz987",
+          "message": "[TEST] Non dovresti mai vedere questo",
+          "title": "TEST - miss",
+          "priority": "default",
+          "tags": ["x"]
+        }
+      ]
+    },
+    {
+      "_comment": "TEST: URL non raggiungibile",
+      "_disabled": true,
+      "url": "https://url-non-raggiungibile-test-xyz.it/",
+      "checks": [
+        {
+          "term": "qualsiasi",
+          "message": "Non dovresti mai vedere questo"
+        }
+      ]
+    },
+    {
       "url": "https://www.teatrogalleria.it/",
       "checks": [
         {
           "term": "barbero",
           "message": "Biglietti in vendita di Barbero al seguente link: https://www.teatrogalleria.it/",
-          "title": "🎟️ Barbero — Teatro Galleria",
+          "title": "Barbero - Teatro Galleria",
           "priority": "high",
           "tags": ["tada", "ticket"]
         }
@@ -25,7 +58,7 @@
         {
           "term": "legnano",
           "message": "Biglietti in vendita di Barbero al seguente link: https://www.ticketone.it/artist/alessandro-barbero/",
-          "title": "🎟️ Barbero — TicketOne",
+          "title": "Barbero - TicketOne",
           "priority": "high",
           "tags": ["tada", "ticket"]
         }
@@ -37,7 +70,7 @@
         {
           "term": "barbero",
           "message": "Biglietti in vendita di Barbero al seguente link: https://www.ticketone.it/venue/teatro-galleria-16242/",
-          "title": "🎟️ Barbero — Teatro Galleria (TicketOne)",
+          "title": "Barbero - Teatro Galleria (TicketOne)",
           "priority": "high",
           "tags": ["tada", "ticket"]
         }

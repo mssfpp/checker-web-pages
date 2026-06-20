@@ -112,7 +112,7 @@ async function checkPage(pageConfig, browser, state) {
 
     if (shouldNotify(state, errorKey, globalDefaults)) {
       await sendNotification({
-        title: "Checker — pagina irraggiungibile",
+        title: "Checker - pagina irraggiungibile",
         message: `Impossibile accedere a ${url}\nErrore: ${err.message}`,
         priority: "high",
         tags: ["warning"],
@@ -134,7 +134,7 @@ async function checkPage(pageConfig, browser, state) {
         console.log(`[MATCH] "${term}" trovato su ${url} → invio notifica`);
         await sendNotification({
           message,
-          title: title ?? "Checker — termine trovato",
+          title: title ?? "Checker - termine trovato",
           priority: priority ?? "high",
           tags: tags ?? ["tada"],
         });
@@ -157,6 +157,10 @@ async function main() {
 
   try {
     for (const page of config.pages) {
+      if (page._disabled) {
+        console.log(`[skip]  Pagina disabilitata: ${page.url}`);
+        continue;
+      }
       await checkPage(page, browser, state);
     }
   } finally {
