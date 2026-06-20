@@ -17,13 +17,20 @@ Modifica `config.json`:
   "ntfy": {
     "channel": "nome-del-tuo-canale"
   },
+  "defaults": {
+    "notifyOnce": true,
+    "resendAfterHours": 3
+  },
   "pages": [
     {
       "url": "https://example.com",
       "checks": [
         {
           "term": "termine da cercare",
-          "message": "Testo della notifica che riceverai"
+          "message": "Testo della notifica che riceverai",
+          "title": "Titolo della notifica",
+          "priority": "high",
+          "tags": ["tada"]
         }
       ]
     }
@@ -31,7 +38,40 @@ Modifica `config.json`:
 }
 ```
 
-Ogni pagina può avere più `checks` indipendenti. Se più termini vengono trovati nella stessa pagina, arrivano notifiche separate.
+### Opzioni per ogni check
+
+| Campo | Obbligatorio | Default | Descrizione |
+|-------|-------------|---------|-------------|
+| `term` | ✅ | — | Termine da cercare nel testo della pagina (case-insensitive) |
+| `message` | ✅ | — | Testo della notifica ntfy |
+| `title` | ❌ | `"Checker - termine trovato"` | Titolo della notifica |
+| `priority` | ❌ | `"high"` | Priorità: `default`, `high`, `urgent` |
+| `tags` | ❌ | `["tada"]` | Tag/emoji ntfy (es. `["ticket", "tada"]`) |
+| `notifyOnce` | ❌ | `true` | Se `true`, non reinvia la notifica finché il termine non scompare e ricompare |
+| `resendAfterHours` | ❌ | `3` | Se il termine è ancora presente, reinvia dopo N ore |
+
+### Opzioni globali (`defaults`)
+
+Valgono per tutti i check, sovrascrivibili sul singolo check:
+
+- `notifyOnce` — evita notifiche ripetute ogni 15 minuti per lo stesso termine
+- `resendAfterHours` — reinvia la notifica se la condizione persiste dopo N ore
+
+### Disabilitare temporaneamente una pagina
+
+Aggiungi `"_disabled": true` alla pagina nel config:
+
+```json
+{
+  "_disabled": true,
+  "url": "https://example.com",
+  "checks": [...]
+}
+```
+
+### Notifiche di errore
+
+Se una pagina è irraggiungibile, arriva una notifica automatica su ntfy. Anche queste rispettano il vincolo `resendAfterHours` per non generare spam in caso di downtime prolungato.
 
 ## Esecuzione locale
 
@@ -43,4 +83,12 @@ npm start
 
 ## GitHub Actions
 
-Il workflow `.github/workflows/checker.yml` esegue lo script automaticamente ogni 15 minuti. Per eseguirlo manualmente vai su **Actions → Web Page Checker → Run workflow**.
+Il workflow `.github/workflows/checker.yml` esegue lo script automaticamente ogni 15 minuti.
+
+> **Nota:** GitHub Actions non garantisce la puntualità esatta dei workflow schedulati. Ritardi di 10-30 minuti sono normali nei momenti di carico elevato sui server GitHub.
+
+Per eseguirlo manualmente: **Actions → Web Page Checker → Run workflow**.
+
+## Stato notifiche
+
+Il file `state.json` traccia quando è stata inviata l'ultima notifica per ogni termine. Viene aggiornato automaticamente dopo ogni run e committato nel repo da GitHub Actions.
