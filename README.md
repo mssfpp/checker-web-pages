@@ -108,9 +108,9 @@ Ogni elemento di `terms` può anche essere un oggetto per usare regex su singoli
 }
 ```
 
-## Comandi wizard
+## Comandi Claude Code
 
-Digita questi comandi in Claude Code per gestire le notifiche senza modificare il JSON a mano:
+Digita questi comandi in una sessione Claude Code aperta nella directory del progetto per gestire le notifiche senza modificare il JSON a mano:
 
 - `/aggiungi-notifica` — aggiunge un nuovo check guidato passo passo
 - `/modifica-notifica` — modifica un check esistente

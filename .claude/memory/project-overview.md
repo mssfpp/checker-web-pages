@@ -24,6 +24,7 @@ Progetto Node.js che monitora pagine web cercando termini e invia notifiche push
 - `state.json` — stato notifiche + heartbeat, committato da Actions dopo ogni run
 - `index.js` — logica principale
 - `.github/workflows/checker.yml` — workflow schedulato
+- `.claude/commands/` — wizard Claude Code per gestire le notifiche
 - `setup-claude-memory.sh` — crea symlink memoria Claude su nuova macchina
 
 ## Decisioni architetturali
@@ -34,9 +35,13 @@ Progetto Node.js che monitora pagine web cercando termini e invia notifiche push
 - `state.json` committato nel repo — unico modo per persistere stato tra run su Actions
 - Cache Chromium in Actions → run ~35 sec invece di ~3 min
 - Timeout: 30s per pagina, 8 min checker step, 10 min job
+- Badge "ultimo run" via Gist pubblico (`52f18e040ca29b6905b30fa7fca770d1`) + Shields.io, token in secret `GIST_TOKEN`
 
 ## Opzioni per check (config.json)
-- `term`, `message` — obbligatori
+- `term` — termine singolo (stringa)
+- `terms` + `condition` — multi-termine con `AND` (default) o `OR`
+- Ogni elemento di `terms` può essere stringa o oggetto `{term, regex, regexFlags}`
+- `regex` + `regexFlags` — ricerca con espressione regolare (default flag: `"i"`)
 - `title`, `priority`, `tags` — aspetto notifica ntfy
 - `notifyOnce` + `resendAfterHours` — dedup notifiche (default globali: true, 3h)
 - `channel` — canale ntfy sovrascrivibile per pagina o per singolo check
@@ -49,7 +54,13 @@ Progetto Node.js che monitora pagine web cercando termini e invia notifiche push
 ## Comportamento notifiche
 - `notifyOnce: true` + `resendAfterHours: 3` come default globali
 - Quando il termine scompare dalla pagina lo stato si resetta (notifica alla ricomparsa)
-- `silenceHours` blocca l'invio ma non aggiorna lo stato — alla fine del silenzio la notifica parte al run successivo
+- `silenceHours` blocca l'invio ma non aggiorna lo stato
+
+## Wizard Claude Code (`.claude/commands/`)
+- `/aggiungi-notifica` — aggiunge check con suggerimenti dal contesto
+- `/modifica-notifica` — modifica check esistente
+- `/rimuovi-notifica` — rimuove check esistente
+- I comandi funzionano solo aprendo Claude Code nella directory del progetto
 
 ## Comandi
 ```bash
