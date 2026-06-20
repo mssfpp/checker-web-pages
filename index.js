@@ -10,7 +10,7 @@ const configFile = process.argv.includes("--config")
   : "./config.json";
 const config = JSON.parse(readFileSync(configFile, "utf-8"));
 const NTFY_BASE_URL = "https://ntfy.sh";
-const channel = config.ntfy.channel;
+const defaultChannel = config.ntfy.channel;
 const TIMEOUT_MS = 30000;
 const STATE_FILE = "./state.json";
 
@@ -56,7 +56,7 @@ function needsPlaywright(url) {
   return USE_PLAYWRIGHT_FOR.some((domain) => url.includes(domain));
 }
 
-async function sendNotification({ message, title, priority = "default", tags }) {
+async function sendNotification({ message, title, priority = "default", tags, channel }) {
   const headers = {
     "Content-Type": "text/plain",
   };
@@ -64,7 +64,7 @@ async function sendNotification({ message, title, priority = "default", tags }) 
   if (priority) headers["Priority"] = priority;
   if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
 
-  const res = await fetch(`${NTFY_BASE_URL}/${channel}`, {
+  const res = await fetch(`${NTFY_BASE_URL}/${channel ?? defaultChannel}`, {
     method: "POST",
     headers,
     body: message,
@@ -99,7 +99,7 @@ async function fetchWithHttp(url) {
 }
 
 async function checkPage(pageConfig, browser, state) {
-  const { url, checks } = pageConfig;
+  const { url, checks, channel: pageChannel } = pageConfig;
   const errorKey = stateKey(url, "__error__");
   let html;
 
@@ -119,6 +119,7 @@ async function checkPage(pageConfig, browser, state) {
         message: `Impossibile accedere a ${url}\nErrore: ${err.message}`,
         priority: "high",
         tags: ["warning"],
+        channel: pageChannel,
       });
       state[errorKey] = { lastNotified: new Date().toISOString() };
     }
@@ -128,7 +129,8 @@ async function checkPage(pageConfig, browser, state) {
   const lowerHtml = html.toLowerCase();
 
   for (const check of checks) {
-    const { term, message, title, priority, tags } = check;
+    const { term, message, title, priority, tags, channel: checkChannel } = check;
+    const channel = checkChannel ?? pageChannel;
     const key = stateKey(url, term);
     const found = lowerHtml.includes(term.toLowerCase());
 
@@ -140,6 +142,7 @@ async function checkPage(pageConfig, browser, state) {
           title: title ?? "Checker - termine trovato",
           priority: priority ?? "high",
           tags: tags ?? ["tada"],
+          channel,
         });
         state[key] = { lastNotified: new Date().toISOString() };
       } else {

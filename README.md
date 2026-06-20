@@ -49,6 +49,9 @@ Modifica `config.json`:
 | `tags` | ❌ | `["tada"]` | Tag/emoji ntfy (es. `["ticket", "tada"]`) |
 | `notifyOnce` | ❌ | `true` | Se `true`, non reinvia la notifica finché il termine non scompare e ricompare |
 | `resendAfterHours` | ❌ | `3` | Se il termine è ancora presente, reinvia dopo N ore |
+| `channel` | ❌ | canale globale | Canale ntfy specifico per questo check |
+
+Il campo `channel` può essere specificato anche a livello di pagina (vale per tutti i suoi check) o sul singolo check (priorità massima).
 
 ### Opzioni globali (`defaults`)
 
