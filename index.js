@@ -141,7 +141,9 @@ async function checkPage(pageConfig, browser, state) {
     const { term, message, title, priority, tags, channel: checkChannel, silenceHours } = check;
     const channel = checkChannel ?? pageChannel;
     const key = stateKey(url, term);
-    const found = lowerHtml.includes(term.toLowerCase());
+    const found = check.regex
+      ? new RegExp(term, check.regexFlags ?? "i").test(html)
+      : lowerHtml.includes(term.toLowerCase());
 
     if (found) {
       if (isSilenced(silenceHours)) {

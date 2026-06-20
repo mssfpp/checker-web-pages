@@ -56,6 +56,8 @@ Modifica `config.json`:
 | `resendAfterHours` | ❌ | `3` | Se il termine è ancora presente, reinvia dopo N ore |
 | `channel` | ❌ | canale globale | Canale ntfy per questo check (sovrascrive pagina e globale) |
 | `silenceHours` | ❌ | nessuno | Fascia oraria silenziosa, es. `{"from": 23, "to": 8}` — funziona anche a cavallo della mezzanotte |
+| `regex` | ❌ | `false` | Se `true`, interpreta `term` come espressione regolare |
+| `regexFlags` | ❌ | `"i"` | Flag regex (es. `"i"`, `"is"`, `"gim"`) — usato solo se `regex: true` |
 
 ### Gerarchia canali ntfy
 
