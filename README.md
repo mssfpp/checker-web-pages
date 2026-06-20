@@ -115,6 +115,7 @@ Digita questi comandi in una sessione Claude Code aperta nella directory del pro
 - `/aggiungi-notifica` — aggiunge un nuovo check guidato passo passo
 - `/modifica-notifica` — modifica un check esistente
 - `/rimuovi-notifica` — rimuove un check esistente
+- `/lista-notifiche` — mostra tutte le notifiche configurate in formato leggibile
 
 ### Gerarchia canali ntfy
 
