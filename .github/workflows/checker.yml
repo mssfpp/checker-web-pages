@@ -39,6 +39,7 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Run checker
+        id: checker
         timeout-minutes: 8
         run: node index.js
 
@@ -54,8 +55,10 @@ jobs:
       - name: Update status badge
         run: |
           MESSAGE=$(date -u "+%d %b %H:%M UTC")
+          CHECKS="${{ steps.checker.outputs.active_checks }}"
+          LABEL="ultimo run · ${CHECKS} check attivi"
           curl -s -X PATCH \
             -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/gists/52f18e040ca29b6905b30fa7fca770d1 \
-            -d "{\"files\":{\"status.json\":{\"content\":\"{\\\"schemaVersion\\\":1,\\\"label\\\":\\\"ultimo run\\\",\\\"message\\\":\\\"${MESSAGE}\\\",\\\"color\\\":\\\"blue\\\"}\"}}}"
+            -d "{\"files\":{\"status.json\":{\"content\":\"{\\\"schemaVersion\\\":1,\\\"label\\\":\\\"${LABEL}\\\",\\\"message\\\":\\\"${MESSAGE}\\\",\\\"color\\\":\\\"blue\\\"}\"}}}"

@@ -13,7 +13,8 @@ const NTFY_BASE_URL = "https://ntfy.sh";
 const defaultChannel = config.ntfy.channel;
 const TIMEOUT_MS = 30000;
 const STATE_FILE = "./state.json";
-const CONCURRENCY = 3;
+const CONCURRENCY = config.concurrency ?? 3;
+const DRY_RUN = process.argv.includes("--dry-run");
 
 const USE_PLAYWRIGHT_FOR = ["ticketone.it"];
 
@@ -112,6 +113,10 @@ function needsPlaywright(url) {
 }
 
 async function sendNotification({ message, title, priority = "default", tags, channel }) {
+  if (DRY_RUN) {
+    console.log(`[dry-run] Notifica → ${title ?? "(no title)"}: ${message}`);
+    return;
+  }
   const headers = { "Content-Type": "text/plain" };
   if (title) headers["Title"] = title;
   if (priority) headers["Priority"] = priority;
@@ -265,7 +270,7 @@ async function main() {
   }
 
   const state = loadState();
-  await sendHeartbeat(state);
+  if (!DRY_RUN) await sendHeartbeat(state);
   const browser = await chromium.launch({ headless: true });
 
   try {
@@ -273,6 +278,11 @@ async function main() {
       if (p._disabled) { console.log(`[skip]  Pagina disabilitata: ${p.url}`); return false; }
       return true;
     });
+
+    const activeChecks = pages.reduce((sum, p) => sum + p.checks.length, 0);
+    if (process.env.GITHUB_OUTPUT) {
+      writeFileSync(process.env.GITHUB_OUTPUT, `active_checks=${activeChecks}\n`, { flag: "a" });
+    }
 
     await runWithConcurrency(
       pages.map((page) => () => checkPage(page, browser, state)),
