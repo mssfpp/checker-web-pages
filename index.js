@@ -32,9 +32,9 @@ function stateKey(url, term) {
   return `${url}|${term}`;
 }
 
-function shouldNotify(state, key, checkConfig) {
-  const notifyOnce = checkConfig.notifyOnce ?? globalDefaults.notifyOnce;
-  const resendAfterHours = checkConfig.resendAfterHours ?? globalDefaults.resendAfterHours;
+function shouldNotify(state, key, opts = {}) {
+  const notifyOnce = opts.notifyOnce ?? globalDefaults.notifyOnce;
+  const resendAfterHours = opts.resendAfterHours ?? globalDefaults.resendAfterHours;
 
   if (!notifyOnce) return true;
 
@@ -53,9 +53,17 @@ function needsPlaywright(url) {
   return USE_PLAYWRIGHT_FOR.some((domain) => url.includes(domain));
 }
 
-async function sendNotification(message) {
+async function sendNotification({ message, title, priority = "default", tags }) {
+  const headers = {
+    "Content-Type": "text/plain",
+  };
+  if (title) headers["Title"] = title;
+  if (priority) headers["Priority"] = priority;
+  if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
+
   const res = await fetch(`${NTFY_BASE_URL}/${channel}`, {
     method: "POST",
+    headers,
     body: message,
     signal: AbortSignal.timeout(10000),
   });
@@ -89,36 +97,53 @@ async function fetchWithHttp(url) {
 
 async function checkPage(pageConfig, browser, state) {
   const { url, checks } = pageConfig;
+  const errorKey = stateKey(url, "__error__");
   let html;
 
   try {
     html = needsPlaywright(url)
       ? await fetchWithPlaywright(url, browser)
       : await fetchWithHttp(url);
+
+    // Pagina tornata raggiungibile — resetta errore precedente
+    delete state[errorKey];
   } catch (err) {
     console.error(`[error] Fetch fallito per ${url}: ${err.message}`);
+
+    if (shouldNotify(state, errorKey, globalDefaults)) {
+      await sendNotification({
+        title: "Checker — pagina irraggiungibile",
+        message: `Impossibile accedere a ${url}\nErrore: ${err.message}`,
+        priority: "high",
+        tags: ["warning"],
+      });
+      state[errorKey] = { lastNotified: new Date().toISOString() };
+    }
     return;
   }
 
   const lowerHtml = html.toLowerCase();
 
   for (const check of checks) {
-    const { term, message } = check;
+    const { term, message, title, priority, tags } = check;
     const key = stateKey(url, term);
     const found = lowerHtml.includes(term.toLowerCase());
 
     if (found) {
       if (shouldNotify(state, key, check)) {
         console.log(`[MATCH] "${term}" trovato su ${url} → invio notifica`);
-        await sendNotification(message);
+        await sendNotification({
+          message,
+          title: title ?? "Checker — termine trovato",
+          priority: priority ?? "high",
+          tags: tags ?? ["tada"],
+        });
         state[key] = { lastNotified: new Date().toISOString() };
       } else {
-        const entry = state[key];
-        console.log(`[skip]  "${term}" trovato su ${url} ma notifica già inviata il ${entry.lastNotified}`);
+        console.log(`[skip]  "${term}" trovato su ${url} ma notifica già inviata il ${state[key].lastNotified}`);
       }
     } else {
       console.log(`[miss]  "${term}" non trovato su ${url}`);
-      // Resetta lo stato così se il termine ricompare viene notificato di nuovo
       delete state[key];
     }
   }
