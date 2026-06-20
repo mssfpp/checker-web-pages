@@ -49,3 +49,12 @@ jobs:
           git add state.json
           git diff --cached --quiet || git commit -m "chore: update state [skip ci]"
           git push
+
+      - name: Update status badge
+        run: |
+          MESSAGE=$(date -u "+%d %b %H:%M UTC")
+          curl -s -X PATCH \
+            -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/gists/d5833f46ffb610e65ce00e2e0c4b8bd4 \
+            -d "{\"files\":{\"status.json\":{\"content\":\"{\\\"schemaVersion\\\":1,\\\"label\\\":\\\"ultimo run\\\",\\\"message\\\":\\\"${MESSAGE}\\\",\\\"color\\\":\\\"blue\\\"}\"}}}"
