@@ -197,7 +197,7 @@ async function fetchWithRetry(pageConfig, browser) {
 
 // --- Controllo pagina ---
 
-async function checkPage(pageConfig, browser, state) {
+async function checkPage(pageConfig, browser, state, pending) {
   const { url, checks, channel: pageChannel } = pageConfig;
   const errorKey = stateKey(url, "__error__");
   let html, screenshot;
@@ -246,16 +246,8 @@ async function checkPage(pageConfig, browser, state) {
       if (isSilenced(silenceHours)) {
         console.log(`[quiet] "${label}" trovato su ${url} ma silenziato (${silenceHours.from}:00-${silenceHours.to}:00)`);
       } else if (shouldNotify(state, key, check)) {
-        console.log(`[MATCH] "${label}" trovato su ${url} → invio notifica`);
-        await sendNotification({
-          message,
-          title: title ?? "Checker - termine trovato",
-          priority: priority ?? "high",
-          tags: tags ?? ["tada"],
-          channel,
-          clickUrl: clickUrl ?? url,
-          screenshot,
-        });
+        console.log(`[MATCH] "${label}" trovato su ${url} → accodato`);
+        pending.push({ message, title, priority, tags, channel, clickUrl: clickUrl ?? url, screenshot, label, url });
         state[key] = { lastNotified: new Date().toISOString() };
       } else {
         console.log(`[skip]  "${label}" trovato su ${url} ma notifica già inviata il ${state[key].lastNotified}`);
@@ -263,6 +255,30 @@ async function checkPage(pageConfig, browser, state) {
     } else {
       console.log(`[miss]  "${label}" non trovato su ${url}`);
       delete state[key];
+    }
+  }
+}
+
+// --- Invio notifiche con aggregazione ---
+
+async function flushNotifications(pending) {
+  const agg = config.aggregation ?? {};
+  const aggEnabled = agg.enabled ?? false;
+  const aggThreshold = agg.threshold ?? 4;
+
+  if (aggEnabled && pending.length >= aggThreshold) {
+    console.log(`[aggrega] ${pending.length} match — invio notifica aggregata`);
+    const body = pending.map((n) => `• ${n.label} su ${n.url}`).join("\n");
+    await sendNotification({
+      title: `Checker - ${pending.length} match trovati`,
+      message: body,
+      priority: "high",
+      tags: ["tada"],
+    });
+  } else {
+    for (const n of pending) {
+      console.log(`[notify] "${n.label}" su ${n.url}`);
+      await sendNotification(n);
     }
   }
 }
@@ -322,10 +338,12 @@ async function main() {
       writeFileSync(process.env.GITHUB_OUTPUT, `active_checks=${activeChecks}\n`, { flag: "a" });
     }
 
+    const pending = [];
     await runWithConcurrency(
-      pages.map((page) => () => checkPage(page, browser, state)),
+      pages.map((page) => () => checkPage(page, browser, state, pending)),
       CONCURRENCY
     );
+    await flushNotifications(pending);
   } finally {
     await browser.close();
   }

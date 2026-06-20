@@ -6,6 +6,10 @@
     "notifyOnce": true,
     "resendAfterHours": 3
   },
+  "aggregation": {
+    "enabled": true,
+    "threshold": 4
+  },
   "pages": [
     {
       "url": "https://www.teatrogalleria.it/",
