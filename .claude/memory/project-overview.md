@@ -20,10 +20,11 @@ Progetto Node.js che monitora pagine web cercando termini e invia notifiche push
 
 ## File chiave
 - `config.json` — pagine e termini (produzione)
-- `config.test.json` — scenari di test
-- `state.json` — stato notifiche, committato da Actions dopo ogni run
+- `config.test.json` — scenari di test (match, miss, errore)
+- `state.json` — stato notifiche + heartbeat, committato da Actions dopo ogni run
 - `index.js` — logica principale
 - `.github/workflows/checker.yml` — workflow schedulato
+- `setup-claude-memory.sh` — crea symlink memoria Claude su nuova macchina
 
 ## Decisioni architetturali
 - Playwright solo per domini in `USE_PLAYWRIGHT_FOR` (attualmente `ticketone.it`)
@@ -34,10 +35,21 @@ Progetto Node.js che monitora pagine web cercando termini e invia notifiche push
 - Cache Chromium in Actions → run ~35 sec invece di ~3 min
 - Timeout: 30s per pagina, 8 min checker step, 10 min job
 
+## Opzioni per check (config.json)
+- `term`, `message` — obbligatori
+- `title`, `priority`, `tags` — aspetto notifica ntfy
+- `notifyOnce` + `resendAfterHours` — dedup notifiche (default globali: true, 3h)
+- `channel` — canale ntfy sovrascrivibile per pagina o per singolo check
+- `silenceHours: { from, to }` — fascia oraria silenziosa, supporta a cavallo mezzanotte
+
+## Notifiche automatiche
+- **Errore pagina** — se fetch fallisce, notifica `high` con dedup 3h
+- **Heartbeat giornaliero** — primo run del giorno manda ping `low` "script attivo"; data salvata in `state.__heartbeat__`
+
 ## Comportamento notifiche
 - `notifyOnce: true` + `resendAfterHours: 3` come default globali
-- Errori di fetch seguono le stesse regole di dedup
-- Quando il termine scompare dalla pagina lo stato si resetta
+- Quando il termine scompare dalla pagina lo stato si resetta (notifica alla ricomparsa)
+- `silenceHours` blocca l'invio ma non aggiorna lo stato — alla fine del silenzio la notifica parte al run successivo
 
 ## Comandi
 ```bash

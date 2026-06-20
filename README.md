@@ -26,13 +26,16 @@ Modifica `config.json`:
   "pages": [
     {
       "url": "https://example.com",
+      "channel": "canale-opzionale-per-pagina",
       "checks": [
         {
           "term": "termine da cercare",
           "message": "Testo della notifica che riceverai",
           "title": "Titolo della notifica",
           "priority": "high",
-          "tags": ["tada"]
+          "tags": ["tada"],
+          "channel": "canale-opzionale-per-check",
+          "silenceHours": { "from": 23, "to": 8 }
         }
       ]
     }
@@ -51,10 +54,16 @@ Modifica `config.json`:
 | `tags` | ❌ | `["tada"]` | Tag/emoji ntfy (es. `["ticket", "tada"]`) |
 | `notifyOnce` | ❌ | `true` | Se `true`, non reinvia la notifica finché il termine non scompare e ricompare |
 | `resendAfterHours` | ❌ | `3` | Se il termine è ancora presente, reinvia dopo N ore |
-| `channel` | ❌ | canale globale | Canale ntfy specifico per questo check |
-| `silenceHours` | ❌ | nessuno | Fascia oraria in cui non inviare la notifica (es. `{"from": 23, "to": 7}`) |
+| `channel` | ❌ | canale globale | Canale ntfy per questo check (sovrascrive pagina e globale) |
+| `silenceHours` | ❌ | nessuno | Fascia oraria silenziosa, es. `{"from": 23, "to": 8}` — funziona anche a cavallo della mezzanotte |
 
-Il campo `channel` può essere specificato anche a livello di pagina (vale per tutti i suoi check) o sul singolo check (priorità massima).
+### Gerarchia canali ntfy
+
+```
+ntfy.channel (globale)
+  └── page.channel (sovrascrive per tutta la pagina)
+        └── check.channel (sovrascrive per il singolo check)
+```
 
 ### Opzioni globali (`defaults`)
 
@@ -75,16 +84,18 @@ Aggiungi `"_disabled": true` alla pagina nel config:
 }
 ```
 
-### Notifiche di errore
+### Notifiche automatiche
 
-Se una pagina è irraggiungibile, arriva una notifica automatica su ntfy. Anche queste rispettano il vincolo `resendAfterHours` per non generare spam in caso di downtime prolungato.
+- **Errore pagina** — se una pagina è irraggiungibile arriva una notifica con priorità `high`. Rispetta `resendAfterHours` per non generare spam in caso di downtime prolungato.
+- **Heartbeat giornaliero** — ogni giorno al primo run arriva un ping "script attivo" con priorità `low`. Utile per accorgersi se GitHub smette di schedulare il workflow.
 
 ## Esecuzione locale
 
 ```bash
 npm install
 npx playwright install chromium
-npm start
+npm start   # usa config.json
+npm test    # usa config.test.json
 ```
 
 ## GitHub Actions
@@ -97,4 +108,14 @@ Per eseguirlo manualmente: **Actions → Web Page Checker → Run workflow**.
 
 ## Stato notifiche
 
-Il file `state.json` traccia quando è stata inviata l'ultima notifica per ogni termine. Viene aggiornato automaticamente dopo ogni run e committato nel repo da GitHub Actions.
+Il file `state.json` traccia l'ultima notifica inviata per ogni termine e il timestamp dell'heartbeat giornaliero. Viene aggiornato automaticamente dopo ogni run e committato nel repo da GitHub Actions.
+
+## Setup su nuova macchina
+
+```bash
+git clone https://github.com/mssfpp/checker-web-pages
+cd checker-web-pages
+bash setup-claude-memory.sh   # collega la memoria di Claude Code al repo
+npm install
+npx playwright install chromium
+```
