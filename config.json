@@ -2,6 +2,10 @@
   "ntfy": {
     "channel": "notify-events-filippo-92847"
   },
+  "defaults": {
+    "notifyOnce": true,
+    "resendAfterHours": 3
+  },
   "pages": [
     {
       "url": "https://www.teatrogalleria.it/",
