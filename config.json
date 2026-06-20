@@ -4,7 +4,9 @@
   },
   "defaults": {
     "notifyOnce": true,
-    "resendAfterHours": 3
+    "resendAfterHours": 3,
+    "_silenceHours_disabled": "per abilitare, rinomina in silenceHours e imposta from/to",
+    "_silenceHours_example": { "from": 23, "to": 8 }
   },
   "aggregation": {
     "enabled": true,

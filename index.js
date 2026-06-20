@@ -99,7 +99,8 @@ function shouldNotify(state, key, opts = {}) {
   return false;
 }
 
-function isSilenced(silenceHours) {
+function isSilenced(checkSilenceHours) {
+  const silenceHours = checkSilenceHours ?? (config.defaults?.silenceHours ?? null);
   if (!silenceHours) return false;
   const hour = new Date().getHours();
   const { from, to } = silenceHours;
