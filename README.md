@@ -1,7 +1,7 @@
 # checker-web-pages
 
 [![Web Page Checker](https://github.com/mssfpp/checker-web-pages/actions/workflows/checker.yml/badge.svg)](https://github.com/mssfpp/checker-web-pages/actions/workflows/checker.yml)
-[![ultimo run](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/mssfpp/52f18e040ca29b6905b30fa7fca770d1/raw/status.json)](https://github.com/mssfpp/checker-web-pages/actions/workflows/checker.yml)
+[![ultimo run](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/mssfpp/52f18e040ca29b6905b30fa7fca770d1/raw/status.json&cacheSeconds=60)](https://github.com/mssfpp/checker-web-pages/actions/workflows/checker.yml)
 
 Monitora una o più pagine web e invia una notifica su [ntfy](https://ntfy.sh) quando viene trovato un termine specifico. Gira automaticamente ogni 15 minuti tramite GitHub Actions.
 
