@@ -138,18 +138,32 @@ async function checkPage(pageConfig, browser, state) {
   const lowerHtml = html.toLowerCase();
 
   for (const check of checks) {
-    const { term, message, title, priority, tags, channel: checkChannel, silenceHours } = check;
+    const { message, title, priority, tags, channel: checkChannel, silenceHours } = check;
     const channel = checkChannel ?? pageChannel;
-    const key = stateKey(url, term);
-    const found = check.regex
-      ? new RegExp(term, check.regexFlags ?? "i").test(html)
-      : lowerHtml.includes(term.toLowerCase());
+
+    // Normalizza: supporta sia `term` (singolo) che `terms` (array)
+    const terms = check.terms
+      ? check.terms.map((t) => (typeof t === "string" ? { term: t } : t))
+      : [{ term: check.term, regex: check.regex, regexFlags: check.regexFlags }];
+
+    const condition = (check.condition ?? "AND").toUpperCase();
+    const label = terms.map((t) => t.term).join(` ${condition} `);
+    const key = stateKey(url, label);
+
+    const matchTerm = (t) => t.regex
+      ? new RegExp(t.term, t.regexFlags ?? "i").test(html)
+      : lowerHtml.includes(t.term.toLowerCase());
+
+    const results = terms.map(matchTerm);
+    const found = condition === "OR"
+      ? results.some(Boolean)
+      : results.every(Boolean);
 
     if (found) {
       if (isSilenced(silenceHours)) {
-        console.log(`[quiet] "${term}" trovato su ${url} ma silenziato (${silenceHours.from}:00-${silenceHours.to}:00)`);
+        console.log(`[quiet] "${label}" trovato su ${url} ma silenziato (${silenceHours.from}:00-${silenceHours.to}:00)`);
       } else if (shouldNotify(state, key, check)) {
-        console.log(`[MATCH] "${term}" trovato su ${url} → invio notifica`);
+        console.log(`[MATCH] "${label}" trovato su ${url} → invio notifica`);
         await sendNotification({
           message,
           title: title ?? "Checker - termine trovato",
@@ -159,10 +173,10 @@ async function checkPage(pageConfig, browser, state) {
         });
         state[key] = { lastNotified: new Date().toISOString() };
       } else {
-        console.log(`[skip]  "${term}" trovato su ${url} ma notifica già inviata il ${state[key].lastNotified}`);
+        console.log(`[skip]  "${label}" trovato su ${url} ma notifica già inviata il ${state[key].lastNotified}`);
       }
     } else {
-      console.log(`[miss]  "${term}" non trovato su ${url}`);
+      console.log(`[miss]  "${label}" non trovato su ${url}`);
       delete state[key];
     }
   }

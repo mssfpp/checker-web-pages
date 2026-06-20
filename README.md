@@ -58,6 +58,8 @@ Modifica `config.json`:
 | `silenceHours` | ❌ | nessuno | Fascia oraria silenziosa, es. `{"from": 23, "to": 8}` — funziona anche a cavallo della mezzanotte |
 | `regex` | ❌ | `false` | Se `true`, interpreta `term` come espressione regolare |
 | `regexFlags` | ❌ | `"i"` | Flag regex (es. `"i"`, `"is"`, `"gim"`) — usato solo se `regex: true` |
+| `terms` | ❌ | — | Array di termini per ricerca multi-termine (sostituisce `term`) |
+| `condition` | ❌ | `"AND"` | Condizione tra i termini: `AND` (tutti presenti) o `OR` (almeno uno) |
 
 **Esempio regex** — cerca "barbero" solo se vicino a "biglietti" o "vendita":
 
@@ -71,6 +73,47 @@ Modifica `config.json`:
 ```
 
 > Il flag `"is"` rende la ricerca case-insensitive (`i`) e fa sì che `.` matchi anche i newline (`s`), utile quando il testo è spezzato su più righe nell'HTML.
+
+**Esempio multi-termine AND** — notifica solo se la pagina contiene sia "barbero" che "biglietti":
+
+```json
+{
+  "terms": ["barbero", "biglietti"],
+  "condition": "AND",
+  "message": "Biglietti Barbero trovati!"
+}
+```
+
+**Esempio multi-termine OR** — notifica se trova almeno uno tra i termini:
+
+```json
+{
+  "terms": ["barbero", "alessandro barbero"],
+  "condition": "OR",
+  "message": "Riferimento a Barbero trovato!"
+}
+```
+
+Ogni elemento di `terms` può anche essere un oggetto per usare regex su singoli termini:
+
+```json
+{
+  "terms": [
+    { "term": "barber[oo]", "regex": true, "regexFlags": "i" },
+    "biglietti"
+  ],
+  "condition": "AND",
+  "message": "Trovato!"
+}
+```
+
+## Comandi wizard
+
+Digita questi comandi in Claude Code per gestire le notifiche senza modificare il JSON a mano:
+
+- `/aggiungi-notifica` — aggiunge un nuovo check guidato passo passo
+- `/modifica-notifica` — modifica un check esistente
+- `/rimuovi-notifica` — rimuove un check esistente
 
 ### Gerarchia canali ntfy
 
