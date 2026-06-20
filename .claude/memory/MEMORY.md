@@ -1,0 +1,2 @@
+- [Project overview](project-overview.md) — stack, obiettivo, file chiave, decisioni architetturali
+- [Feedback](feedback.md) — preferenze e correzioni emerse durante lo sviluppo
