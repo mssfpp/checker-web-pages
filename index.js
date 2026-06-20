@@ -155,10 +155,24 @@ async function checkPage(pageConfig, browser, state) {
   }
 }
 
+async function sendHeartbeat(state) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (state.__heartbeat__ === today) return;
+
+  await sendNotification({
+    title: "Checker - script attivo",
+    message: `Il checker sta girando regolarmente. (${today})`,
+    priority: "low",
+    tags: ["white_check_mark"],
+  });
+  state.__heartbeat__ = today;
+}
+
 async function main() {
   console.log(`Avvio controllo — ${new Date().toISOString()}`);
 
   const state = loadState();
+  await sendHeartbeat(state);
   const browser = await chromium.launch({ headless: true });
 
   try {
