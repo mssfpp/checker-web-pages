@@ -13,6 +13,7 @@ const NTFY_BASE_URL = "https://ntfy.sh";
 const defaultChannel = config.ntfy.channel;
 const TIMEOUT_MS = 30000;
 const STATE_FILE = "./state.json";
+const CONCURRENCY = 3;
 
 const USE_PLAYWRIGHT_FOR = ["ticketone.it"];
 
@@ -21,6 +22,49 @@ const globalDefaults = {
   resendAfterHours: null,
   ...config.defaults,
 };
+
+// --- Validazione config ---
+
+function validateConfig(cfg) {
+  const errors = [];
+
+  if (!cfg.ntfy?.channel) errors.push("ntfy.channel è obbligatorio");
+  if (!Array.isArray(cfg.pages) || cfg.pages.length === 0) errors.push("pages deve essere un array non vuoto");
+
+  const VALID_PRIORITIES = ["default", "low", "min", "high", "urgent", "max"];
+  const VALID_CONDITIONS = ["AND", "OR"];
+
+  (cfg.pages ?? []).forEach((page, pi) => {
+    const prefix = `pages[${pi}]`;
+    if (!page.url) {
+      errors.push(`${prefix}: url è obbligatorio`);
+    } else {
+      try { new URL(page.url); } catch { errors.push(`${prefix}: url non valido ("${page.url}")`); }
+    }
+    if (!Array.isArray(page.checks) || page.checks.length === 0) {
+      errors.push(`${prefix}: checks deve essere un array non vuoto`);
+    }
+    (page.checks ?? []).forEach((check, ci) => {
+      const cp = `${prefix}.checks[${ci}]`;
+      if (!check.term && !check.terms) errors.push(`${cp}: term o terms è obbligatorio`);
+      if (!check.message) errors.push(`${cp}: message è obbligatorio`);
+      if (check.priority && !VALID_PRIORITIES.includes(check.priority))
+        errors.push(`${cp}: priority non valida ("${check.priority}") — valori: ${VALID_PRIORITIES.join(", ")}`);
+      if (check.condition && !VALID_CONDITIONS.includes(check.condition.toUpperCase()))
+        errors.push(`${cp}: condition non valida ("${check.condition}") — valori: AND, OR`);
+      if (check.silenceHours) {
+        const { from, to } = check.silenceHours;
+        if (from == null || to == null) errors.push(`${cp}: silenceHours richiede from e to`);
+        if (from < 0 || from > 23 || to < 0 || to > 23) errors.push(`${cp}: silenceHours.from e to devono essere tra 0 e 23`);
+      }
+      if (check.regex && !check.term) errors.push(`${cp}: regex richiede term (non terms)`);
+    });
+  });
+
+  return errors;
+}
+
+// --- State ---
 
 function loadState() {
   if (!existsSync(STATE_FILE)) return {};
@@ -34,6 +78,8 @@ function saveState(state) {
 function stateKey(url, term) {
   return `${url}|${term}`;
 }
+
+// --- Logica notifiche ---
 
 function shouldNotify(state, key, opts = {}) {
   const notifyOnce = opts.notifyOnce ?? globalDefaults.notifyOnce;
@@ -66,9 +112,7 @@ function needsPlaywright(url) {
 }
 
 async function sendNotification({ message, title, priority = "default", tags, channel }) {
-  const headers = {
-    "Content-Type": "text/plain",
-  };
+  const headers = { "Content-Type": "text/plain" };
   if (title) headers["Title"] = title;
   if (priority) headers["Priority"] = priority;
   if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
@@ -83,6 +127,8 @@ async function sendNotification({ message, title, priority = "default", tags, ch
     console.error(`Errore invio notifica: ${res.status} ${res.statusText}`);
   }
 }
+
+// --- Fetch ---
 
 async function fetchWithPlaywright(url, browser) {
   const page = await browser.newPage();
@@ -107,6 +153,8 @@ async function fetchWithHttp(url) {
   return res.text();
 }
 
+// --- Controllo pagina ---
+
 async function checkPage(pageConfig, browser, state) {
   const { url, checks, channel: pageChannel } = pageConfig;
   const errorKey = stateKey(url, "__error__");
@@ -116,12 +164,9 @@ async function checkPage(pageConfig, browser, state) {
     html = needsPlaywright(url)
       ? await fetchWithPlaywright(url, browser)
       : await fetchWithHttp(url);
-
-    // Pagina tornata raggiungibile — resetta errore precedente
     delete state[errorKey];
   } catch (err) {
     console.error(`[error] Fetch fallito per ${url}: ${err.message}`);
-
     if (shouldNotify(state, errorKey, globalDefaults)) {
       await sendNotification({
         title: "Checker - pagina irraggiungibile",
@@ -141,7 +186,6 @@ async function checkPage(pageConfig, browser, state) {
     const { message, title, priority, tags, channel: checkChannel, silenceHours } = check;
     const channel = checkChannel ?? pageChannel;
 
-    // Normalizza: supporta sia `term` (singolo) che `terms` (array)
     const terms = check.terms
       ? check.terms.map((t) => (typeof t === "string" ? { term: t } : t))
       : [{ term: check.term, regex: check.regex, regexFlags: check.regexFlags }];
@@ -155,9 +199,7 @@ async function checkPage(pageConfig, browser, state) {
       : lowerHtml.includes(t.term.toLowerCase());
 
     const results = terms.map(matchTerm);
-    const found = condition === "OR"
-      ? results.some(Boolean)
-      : results.every(Boolean);
+    const found = condition === "OR" ? results.some(Boolean) : results.every(Boolean);
 
     if (found) {
       if (isSilenced(silenceHours)) {
@@ -182,10 +224,25 @@ async function checkPage(pageConfig, browser, state) {
   }
 }
 
+// --- Concorrenza ---
+
+async function runWithConcurrency(tasks, limit) {
+  const results = [];
+  const executing = new Set();
+  for (const task of tasks) {
+    const p = task().finally(() => executing.delete(p));
+    executing.add(p);
+    results.push(p);
+    if (executing.size >= limit) await Promise.race(executing);
+  }
+  return Promise.all(results);
+}
+
+// --- Heartbeat ---
+
 async function sendHeartbeat(state) {
   const today = new Date().toISOString().slice(0, 10);
   if (state.__heartbeat__ === today) return;
-
   await sendNotification({
     title: "Checker - script attivo",
     message: `Il checker sta girando regolarmente. (${today})`,
@@ -195,21 +252,32 @@ async function sendHeartbeat(state) {
   state.__heartbeat__ = today;
 }
 
+// --- Main ---
+
 async function main() {
   console.log(`Avvio controllo — ${new Date().toISOString()}`);
+
+  const errors = validateConfig(config);
+  if (errors.length > 0) {
+    console.error("Errori di configurazione:");
+    errors.forEach((e) => console.error(`  • ${e}`));
+    process.exit(1);
+  }
 
   const state = loadState();
   await sendHeartbeat(state);
   const browser = await chromium.launch({ headless: true });
 
   try {
-    for (const page of config.pages) {
-      if (page._disabled) {
-        console.log(`[skip]  Pagina disabilitata: ${page.url}`);
-        continue;
-      }
-      await checkPage(page, browser, state);
-    }
+    const pages = config.pages.filter((p) => {
+      if (p._disabled) { console.log(`[skip]  Pagina disabilitata: ${p.url}`); return false; }
+      return true;
+    });
+
+    await runWithConcurrency(
+      pages.map((page) => () => checkPage(page, browser, state)),
+      CONCURRENCY
+    );
   } finally {
     await browser.close();
   }
