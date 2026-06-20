@@ -8,7 +8,7 @@ chromium.use(StealthPlugin());
 const config = JSON.parse(readFileSync("./config.json", "utf-8"));
 const NTFY_BASE_URL = "https://ntfy.sh";
 const channel = config.ntfy.channel;
-const TIMEOUT_MS = 20000;
+const TIMEOUT_MS = 30000;
 
 const USE_PLAYWRIGHT_FOR = ["ticketone.it"];
 

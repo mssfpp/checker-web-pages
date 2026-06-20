@@ -8,6 +8,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -16,11 +17,24 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
+      - name: Cache Chromium
+        id: cache-chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install dependencies
         run: npm ci
 
       - name: Install Chromium
+        if: steps.cache-chromium.outputs.cache-hit != 'true'
         run: npx playwright install chromium --with-deps
 
+      - name: Install Chromium system deps
+        if: steps.cache-chromium.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
       - name: Run checker
+        timeout-minutes: 8
         run: node index.js
