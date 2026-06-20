@@ -172,20 +172,41 @@ async function fetchWithHttp(url) {
   return { html: await res.text(), screenshot: null };
 }
 
+// --- Retry fetch ---
+
+const RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 5000;
+
+async function fetchWithRetry(pageConfig, browser) {
+  let lastErr;
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await (needsPlaywright(pageConfig)
+        ? fetchWithPlaywright(pageConfig.url, browser, !!pageConfig.screenshot)
+        : fetchWithHttp(pageConfig.url));
+    } catch (err) {
+      lastErr = err;
+      if (attempt < RETRY_ATTEMPTS) {
+        console.warn(`[retry] Tentativo ${attempt}/${RETRY_ATTEMPTS} fallito per ${pageConfig.url}: ${err.message} — riprovo tra ${RETRY_DELAY_MS / 1000}s`);
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 // --- Controllo pagina ---
 
 async function checkPage(pageConfig, browser, state) {
-  const { url, checks, channel: pageChannel, screenshot: pageScreenshot } = pageConfig;
+  const { url, checks, channel: pageChannel } = pageConfig;
   const errorKey = stateKey(url, "__error__");
   let html, screenshot;
 
   try {
-    ({ html, screenshot } = needsPlaywright(pageConfig)
-      ? await fetchWithPlaywright(url, browser, !!pageScreenshot)
-      : await fetchWithHttp(url));
+    ({ html, screenshot } = await fetchWithRetry(pageConfig, browser));
     delete state[errorKey];
   } catch (err) {
-    console.error(`[error] Fetch fallito per ${url}: ${err.message}`);
+    console.error(`[error] Fetch fallito per ${url} dopo ${RETRY_ATTEMPTS} tentativi: ${err.message}`);
     if (shouldNotify(state, errorKey, globalDefaults)) {
       await sendNotification({
         title: "Checker - pagina irraggiungibile",
