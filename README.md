@@ -59,6 +59,19 @@ Modifica `config.json`:
 | `regex` | ❌ | `false` | Se `true`, interpreta `term` come espressione regolare |
 | `regexFlags` | ❌ | `"i"` | Flag regex (es. `"i"`, `"is"`, `"gim"`) — usato solo se `regex: true` |
 
+**Esempio regex** — cerca "barbero" solo se vicino a "biglietti" o "vendita":
+
+```json
+{
+  "term": "barbero.{0,100}(biglietti|vendita)",
+  "regex": true,
+  "regexFlags": "is",
+  "message": "Biglietti Barbero trovati!"
+}
+```
+
+> Il flag `"is"` rende la ricerca case-insensitive (`i`) e fa sì che `.` matchi anche i newline (`s`), utile quando il testo è spezzato su più righe nell'HTML.
+
 ### Gerarchia canali ntfy
 
 ```
