@@ -27,10 +27,6 @@
         {
           "term": "barbero",
           "message": "Biglietti in vendita di Barbero al seguente link: https://www.ticketone.it/venue/teatro-galleria-16242/"
-        },
-        {
-          "term": "eleazaro",
-          "message": "[TEST] Eleazaro trovato su TicketOne Teatro Galleria — il checker funziona!"
         }
       ]
     }
