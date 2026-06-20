@@ -52,6 +52,7 @@ Modifica `config.json`:
 | `notifyOnce` | ❌ | `true` | Se `true`, non reinvia la notifica finché il termine non scompare e ricompare |
 | `resendAfterHours` | ❌ | `3` | Se il termine è ancora presente, reinvia dopo N ore |
 | `channel` | ❌ | canale globale | Canale ntfy specifico per questo check |
+| `silenceHours` | ❌ | nessuno | Fascia oraria in cui non inviare la notifica (es. `{"from": 23, "to": 7}`) |
 
 Il campo `channel` può essere specificato anche a livello di pagina (vale per tutti i suoi check) o sul singolo check (priorità massima).
 

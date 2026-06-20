@@ -52,6 +52,15 @@ function shouldNotify(state, key, opts = {}) {
   return false;
 }
 
+function isSilenced(silenceHours) {
+  if (!silenceHours) return false;
+  const hour = new Date().getHours();
+  const { from, to } = silenceHours;
+  return from < to
+    ? hour >= from && hour < to
+    : hour >= from || hour < to;
+}
+
 function needsPlaywright(url) {
   return USE_PLAYWRIGHT_FOR.some((domain) => url.includes(domain));
 }
@@ -129,13 +138,15 @@ async function checkPage(pageConfig, browser, state) {
   const lowerHtml = html.toLowerCase();
 
   for (const check of checks) {
-    const { term, message, title, priority, tags, channel: checkChannel } = check;
+    const { term, message, title, priority, tags, channel: checkChannel, silenceHours } = check;
     const channel = checkChannel ?? pageChannel;
     const key = stateKey(url, term);
     const found = lowerHtml.includes(term.toLowerCase());
 
     if (found) {
-      if (shouldNotify(state, key, check)) {
+      if (isSilenced(silenceHours)) {
+        console.log(`[quiet] "${term}" trovato su ${url} ma silenziato (${silenceHours.from}:00-${silenceHours.to}:00)`);
+      } else if (shouldNotify(state, key, check)) {
         console.log(`[MATCH] "${term}" trovato su ${url} → invio notifica`);
         await sendNotification({
           message,
