@@ -5,6 +5,15 @@ import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 chromium.use(StealthPlugin());
 
+// Il plugin stealth usa sessioni CDP interne che lanciano unhandledRejection
+// quando chiudiamo la pagina prima che completino. Non è un errore reale.
+process.on("unhandledRejection", (reason) => {
+  const msg = String(reason?.message ?? reason);
+  if (msg.includes("cdpSession.send") || msg.includes("Target page, context or browser has been closed")) return;
+  console.error("Unhandled rejection:", reason);
+  process.exit(1);
+});
+
 const configFile = process.argv.includes("--config")
   ? process.argv[process.argv.indexOf("--config") + 1]
   : "./config.json";
