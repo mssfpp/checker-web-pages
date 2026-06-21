@@ -80,6 +80,32 @@ function stateKey(url, term) {
   return `${url}|${term}`;
 }
 
+function cleanOrphanState(state, pages) {
+  const validKeys = new Set(["__heartbeat__"]);
+
+  for (const page of pages) {
+    if (page._disabled) continue;
+    validKeys.add(stateKey(page.url, "__error__"));
+    for (const check of page.checks) {
+      const terms = check.terms
+        ? check.terms.map((t) => (typeof t === "string" ? t : t.term))
+        : [check.term];
+      const condition = (check.condition ?? "AND").toUpperCase();
+      const label = terms.join(` ${condition} `);
+      validKeys.add(stateKey(page.url, label));
+    }
+  }
+
+  let removed = 0;
+  for (const key of Object.keys(state)) {
+    if (!validKeys.has(key)) {
+      delete state[key];
+      removed++;
+    }
+  }
+  if (removed > 0) console.log(`[cleanup] Rimosse ${removed} chiavi orfane da state.json`);
+}
+
 // --- Logica notifiche ---
 
 function shouldNotify(state, key, opts = {}) {
@@ -325,15 +351,18 @@ async function main() {
   }
 
   const state = loadState();
+  const pages = config.pages.filter((p) => {
+    if (p._disabled) { console.log(`[skip]  Pagina disabilitata: ${p.url}`); return false; }
+    return true;
+  });
+  cleanOrphanState(state, pages);
   if (!DRY_RUN) await sendHeartbeat(state);
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
 
   try {
-    const pages = config.pages.filter((p) => {
-      if (p._disabled) { console.log(`[skip]  Pagina disabilitata: ${p.url}`); return false; }
-      return true;
-    });
-
     const activeChecks = pages.reduce((sum, p) => sum + p.checks.length, 0);
     if (process.env.GITHUB_OUTPUT) {
       writeFileSync(process.env.GITHUB_OUTPUT, `active_checks=${activeChecks}\n`, { flag: "a" });
