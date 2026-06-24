@@ -95,6 +95,7 @@ Valgono per tutti i check, sovrascrivibili sul singolo check:
 | `regexFlags` | ❌ | `"i"` | Flag regex — usato solo se `regex: true` |
 | `terms` | ❌ | — | Array di termini per ricerca multi-termine (sostituisce `term`) |
 | `condition` | ❌ | `"AND"` | Condizione tra i termini: `AND` (tutti presenti) o `OR` (almeno uno) |
+| `textOnly` | ❌ | `false` | Se `true`, cerca solo nel testo visibile ignorando attributi HTML (src, href, class…) — evita falsi positivi da immagini o link |
 
 ### Gerarchia canali ntfy
 

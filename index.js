@@ -188,8 +188,9 @@ async function fetchWithPlaywright(url, browser, takeScreenshot = false) {
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: TIMEOUT_MS });
     const html = await page.content();
+    const text = await page.innerText("body").catch(() => "");
     const screenshot = takeScreenshot ? await page.screenshot({ type: "png", fullPage: false }) : null;
-    return { html, screenshot };
+    return { html, text, screenshot };
   } finally {
     await page.close();
   }
@@ -205,7 +206,10 @@ async function fetchWithHttp(url) {
     },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return { html: await res.text(), screenshot: null };
+  const html = await res.text();
+  // Testo visibile approssimato: rimuove tag e attributi
+  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  return { html, text, screenshot: null };
 }
 
 // --- Retry fetch ---
@@ -236,10 +240,10 @@ async function fetchWithRetry(pageConfig, browser) {
 async function checkPage(pageConfig, browser, state, pending) {
   const { url, checks, channel: pageChannel } = pageConfig;
   const errorKey = stateKey(url, "__error__");
-  let html, screenshot;
+  let html, text, screenshot;
 
   try {
-    ({ html, screenshot } = await fetchWithRetry(pageConfig, browser));
+    ({ html, text, screenshot } = await fetchWithRetry(pageConfig, browser));
     delete state[errorKey];
   } catch (err) {
     console.error(`[error] Fetch fallito per ${url} dopo ${RETRY_ATTEMPTS} tentativi: ${err.message}`);
@@ -258,10 +262,13 @@ async function checkPage(pageConfig, browser, state, pending) {
   }
 
   const lowerHtml = html.toLowerCase();
+  const lowerText = (text ?? "").toLowerCase();
 
   for (const check of checks) {
-    const { message, title, priority, tags, channel: checkChannel, silenceHours, clickUrl } = check;
+    const { message, title, priority, tags, channel: checkChannel, silenceHours, clickUrl, textOnly } = check;
     const channel = checkChannel ?? pageChannel;
+    const searchIn = textOnly ? lowerText : lowerHtml;
+    const searchInRaw = textOnly ? (text ?? "") : html;
 
     const terms = check.terms
       ? check.terms.map((t) => (typeof t === "string" ? { term: t } : t))
@@ -272,8 +279,8 @@ async function checkPage(pageConfig, browser, state, pending) {
     const key = stateKey(url, label);
 
     const matchTerm = (t) => t.regex
-      ? new RegExp(t.term, t.regexFlags ?? "i").test(html)
-      : lowerHtml.includes(t.term.toLowerCase());
+      ? new RegExp(t.term, t.regexFlags ?? "i").test(searchInRaw)
+      : searchIn.includes(t.term.toLowerCase());
 
     const results = terms.map(matchTerm);
     const found = condition === "OR" ? results.some(Boolean) : results.every(Boolean);

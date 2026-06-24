@@ -32,6 +32,7 @@
       "checks": [
         {
           "term": "legnano",
+          "textOnly": true,
           "message": "Biglietti in vendita di Barbero al seguente link: https://www.ticketone.it/artist/alessandro-barbero/",
           "title": "Barbero - TicketOne",
           "priority": "high",
