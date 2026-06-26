@@ -29,10 +29,12 @@ Progetto Node.js che monitora pagine web cercando termini e invia notifiche push
 
 ## Decisioni architetturali
 - Playwright solo per domini in `USE_PLAYWRIGHT_FOR` (attualmente `ticketone.it`)
+- Chromium lanciato con `--no-sandbox --disable-setuid-sandbox` (obbligatorio su Linux container di Actions)
 - Emoji vietate negli header HTTP — vanno solo nel campo `tags` di ntfy
 - `_disabled: true` nel config per disabilitare una pagina senza rimuoverla
 - `--config` flag: `npm start` → `config.json`, `npm test` → `config.test.json`
 - `state.json` committato nel repo — unico modo per persistere stato tra run su Actions
+- `cleanOrphanState()` chiamata a ogni avvio — rimuove chiavi di check rimossi dal config
 - Cache Chromium in Actions → run ~35 sec invece di ~3 min
 - Timeout: 30s per pagina, 8 min checker step, 10 min job
 - Badge "ultimo run" via Gist pubblico (`52f18e040ca29b6905b30fa7fca770d1`) + Shields.io, token in secret `GIST_TOKEN`
@@ -49,7 +51,11 @@ Progetto Node.js che monitora pagine web cercando termini e invia notifiche push
 
 ## Notifiche automatiche
 - **Errore pagina** — se fetch fallisce, notifica `high` con dedup 3h
+- **Anti-bot attivo** — `detectBlock()` riconosce le pagine di blocco/challenge (Akamai/Cloudflare/captcha) tramite `BLOCK_SIGNATURES` e le tratta come errore con notifica dedicata, invece di scambiarle per "termine non trovato". Le firme sono specifiche delle pagine di blocco: NON usare `/akam/` (presente anche su pagine legittime → falsi positivi)
 - **Heartbeat giornaliero** — primo run del giorno manda ping `low` "script attivo"; data salvata in `state.__heartbeat__`
+
+## Opzioni ricerca testo
+- `textOnly: true` su un check → cerca solo nel testo visibile (innerText con Playwright, HTML senza tag con HTTP), ignora attributi come `src`/`href`. Attivo sul check `legnano` di ticketone artist per evitare match su path immagini
 
 ## Comportamento notifiche
 - `notifyOnce: true` + `resendAfterHours: 3` come default globali
