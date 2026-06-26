@@ -149,6 +149,7 @@ Aggiungi `"_disabled": true` alla pagina nel config:
 ### Notifiche automatiche
 
 - **Errore pagina** — se una pagina è irraggiungibile dopo 3 tentativi, arriva una notifica `high`. Rispetta `resendAfterHours` per non generare spam.
+- **Anti-bot attivo** — se una pagina protetta (es. TicketOne) restituisce una pagina di blocco/challenge invece del contenuto reale, arriva una notifica `high` dedicata. Evita di scambiare un blocco per un "termine non trovato" e perdere notifiche reali senza accorgersene.
 - **Heartbeat giornaliero** — al primo run del giorno arriva un ping `low` "script attivo". Utile per accorgersi se GitHub smette di schedulare il workflow.
 
 ## Esecuzione locale

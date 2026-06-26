@@ -212,6 +212,34 @@ async function fetchWithHttp(url) {
   return { html, text, screenshot: null };
 }
 
+// --- Rilevamento blocco anti-bot ---
+
+// Frasi tipiche delle pagine di blocco/challenge (Akamai, Cloudflare, captcha…).
+// Devono essere specifiche delle pagine di blocco, NON di telemetria presente
+// anche su pagine legittime (es. il pixel "/akam/" c'è anche quando il bypass funziona).
+const BLOCK_SIGNATURES = [
+  "access denied",
+  "you don't have permission to access",
+  "errors.edgesuite.net",
+  "sec-cpt-container",
+  "powered and protected by",
+  "attention required",
+  "checking your browser",
+  "verifying you are human",
+  "captcha-delivery.com",
+  "px-captcha",
+  "request unsuccessful. incapsula",
+];
+
+function detectBlock(html) {
+  const lower = html.toLowerCase();
+  const sig = BLOCK_SIGNATURES.find((s) => lower.includes(s));
+  if (sig) return sig;
+  // Pagina estremamente corta = quasi certamente blocco/errore, non una pagina reale
+  if (html.length < 300) return "pagina vuota/troppo corta";
+  return null;
+}
+
 // --- Retry fetch ---
 
 const RETRY_ATTEMPTS = 3;
@@ -221,9 +249,12 @@ async function fetchWithRetry(pageConfig, browser) {
   let lastErr;
   for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
     try {
-      return await (needsPlaywright(pageConfig)
+      const result = await (needsPlaywright(pageConfig)
         ? fetchWithPlaywright(pageConfig.url, browser, !!pageConfig.screenshot)
         : fetchWithHttp(pageConfig.url));
+      const block = detectBlock(result.html);
+      if (block) throw new Error(`bloccato da anti-bot (${block})`);
+      return result;
     } catch (err) {
       lastErr = err;
       if (attempt < RETRY_ATTEMPTS) {
@@ -247,10 +278,13 @@ async function checkPage(pageConfig, browser, state, pending) {
     delete state[errorKey];
   } catch (err) {
     console.error(`[error] Fetch fallito per ${url} dopo ${RETRY_ATTEMPTS} tentativi: ${err.message}`);
+    const isBlock = err.message.includes("anti-bot");
     if (shouldNotify(state, errorKey, globalDefaults)) {
       await sendNotification({
-        title: "Checker - pagina irraggiungibile",
-        message: `Impossibile accedere a ${url}\nErrore: ${err.message}`,
+        title: isBlock ? "Checker - anti-bot attivo" : "Checker - pagina irraggiungibile",
+        message: isBlock
+          ? `Il bypass anti-bot non funziona più su ${url}\nLe ricerche su questo sito potrebbero non essere affidabili.\nDettaglio: ${err.message}`
+          : `Impossibile accedere a ${url}\nErrore: ${err.message}`,
         priority: "high",
         tags: ["warning"],
         channel: pageChannel,
