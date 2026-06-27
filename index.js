@@ -183,11 +183,42 @@ async function sendNotification({ message, title, priority = "default", tags, ch
 
 // --- Fetch ---
 
-async function fetchWithPlaywright(url, browser, takeScreenshot = false) {
-  const page = await browser.newPage();
+const REALISTIC_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+// La challenge anti-bot (Akamai sec-cpt) si auto-risolve ricaricando la pagina:
+// dopo il goto attendiamo che il contenuto di blocco sparisca prima di arrenderci.
+const CHALLENGE_WAIT_ATTEMPTS = 4;
+const CHALLENGE_WAIT_MS = 2500;
+
+async function fetchWithPlaywright(url, browser, takeScreenshot = false, captureOnBlock = false) {
+  const page = await browser.newPage({
+    userAgent: REALISTIC_UA,
+    viewport: { width: 1280, height: 800 },
+    locale: "it-IT",
+  });
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: TIMEOUT_MS });
-    const html = await page.content();
+
+    let html = await page.content();
+    let block = detectBlock(html);
+    // Se è una challenge, diamo tempo al sensore JS di risolverla (auto-reload)
+    for (let i = 0; i < CHALLENGE_WAIT_ATTEMPTS && block; i++) {
+      await page.waitForTimeout(CHALLENGE_WAIT_MS);
+      html = await page.content();
+      block = detectBlock(html);
+    }
+
+    if (block) {
+      const screenshot = captureOnBlock
+        ? await page.screenshot({ type: "png", fullPage: false }).catch(() => null)
+        : null;
+      const err = new Error(`bloccato da anti-bot (${block})`);
+      err.isBlock = true;
+      err.screenshot = screenshot;
+      throw err;
+    }
+
     const text = await page.innerText("body").catch(() => "");
     const screenshot = takeScreenshot ? await page.screenshot({ type: "png", fullPage: false }) : null;
     return { html, text, screenshot };
@@ -245,13 +276,24 @@ function detectBlock(html) {
 const RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 5000;
 
+function wantsErrorScreenshot(pageConfig) {
+  return pageConfig.errorScreenshot ?? globalDefaults.errorScreenshot ?? true;
+}
+
 async function fetchWithRetry(pageConfig, browser) {
   let lastErr;
   for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
     try {
-      const result = await (needsPlaywright(pageConfig)
-        ? fetchWithPlaywright(pageConfig.url, browser, !!pageConfig.screenshot)
-        : fetchWithHttp(pageConfig.url));
+      if (needsPlaywright(pageConfig)) {
+        // il blocco è rilevato (e lo screenshot catturato) dentro fetchWithPlaywright
+        return await fetchWithPlaywright(
+          pageConfig.url,
+          browser,
+          !!pageConfig.screenshot,
+          wantsErrorScreenshot(pageConfig)
+        );
+      }
+      const result = await fetchWithHttp(pageConfig.url);
       const block = detectBlock(result.html);
       if (block) throw new Error(`bloccato da anti-bot (${block})`);
       return result;
@@ -289,6 +331,7 @@ async function checkPage(pageConfig, browser, state, pending) {
         tags: ["warning"],
         channel: pageChannel,
         clickUrl: url,
+        screenshot: err.screenshot ?? null,
       });
       state[errorKey] = { lastNotified: new Date().toISOString() };
     }

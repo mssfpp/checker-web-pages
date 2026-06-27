@@ -76,6 +76,7 @@ Valgono per tutti i check, sovrascrivibili sul singolo check:
 |-------|---------|-------------|
 | `channel` | canale globale | Canale ntfy per tutti i check della pagina |
 | `screenshot` | `false` | Se `true`, allega uno screenshot alla notifica. Abilita automaticamente Playwright anche per siti non-TicketOne |
+| `errorScreenshot` | `true` | Se `true`, allega lo screenshot della pagina alle notifiche di blocco anti-bot, per vedere cosa stava vedendo lo script. Solo per pagine via Playwright. Impostabile anche globalmente in `defaults` |
 
 ### Opzioni per ogni check
 
@@ -149,7 +150,7 @@ Aggiungi `"_disabled": true` alla pagina nel config:
 ### Notifiche automatiche
 
 - **Errore pagina** — se una pagina è irraggiungibile dopo 3 tentativi, arriva una notifica `high`. Rispetta `resendAfterHours` per non generare spam.
-- **Anti-bot attivo** — se una pagina protetta (es. TicketOne) restituisce una pagina di blocco/challenge invece del contenuto reale, arriva una notifica `high` dedicata. Evita di scambiare un blocco per un "termine non trovato" e perdere notifiche reali senza accorgersene.
+- **Anti-bot attivo** — se una pagina protetta (es. TicketOne) restituisce una pagina di blocco/challenge invece del contenuto reale, arriva una notifica `high` dedicata, con lo screenshot della pagina vista (disattivabile con `errorScreenshot: false`). Prima di arrendersi lo script attende che l'eventuale challenge Akamai si auto-risolva (ricarica). Evita di scambiare un blocco per un "termine non trovato" e perdere notifiche reali senza accorgersene.
 - **Heartbeat giornaliero** — al primo run del giorno arriva un ping `low` "script attivo". Utile per accorgersi se GitHub smette di schedulare il workflow.
 
 ## Esecuzione locale
