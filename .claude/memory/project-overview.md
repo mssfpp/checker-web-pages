@@ -51,7 +51,8 @@ Progetto Node.js che monitora pagine web cercando termini e invia notifiche push
 
 ## Notifiche automatiche
 - **Errore pagina** — se fetch fallisce, notifica `high` con dedup 3h
-- **Anti-bot attivo** — `detectBlock()` riconosce le pagine di blocco/challenge (Akamai/Cloudflare/captcha) tramite `BLOCK_SIGNATURES` e le tratta come errore con notifica dedicata, invece di scambiarle per "termine non trovato". Le firme sono specifiche delle pagine di blocco: NON usare `/akam/` (presente anche su pagine legittime → falsi positivi)
+- **Anti-bot attivo** — `detectBlock()` riconosce le pagine di blocco/challenge (Akamai/Cloudflare/captcha) tramite `BLOCK_SIGNATURES` e le tratta come errore con notifica dedicata (+ screenshot della pagina vista, disattivabile con `errorScreenshot: false`), invece di scambiarle per "termine non trovato". Le firme sono specifiche delle pagine di blocco: NON usare `/akam/` (presente anche su pagine legittime → falsi positivi)
+  - **Mitigazione challenge intermittente**: la challenge Akamai (`sec-cpt`/"powered and protected by") si auto-risolve ricaricando dopo aver calcolato il sensore JS. `fetchWithPlaywright` attende fino a 4×2.5s che il blocco sparisca PRIMA di dichiararlo, e usa un context realistico (UA Chrome, viewport 1280x800, locale it-IT) per ridurre la frequenza delle challenge. Con `domcontentloaded` da solo si catturava l'HTML troppo presto → falsi blocchi
 - **Heartbeat giornaliero** — primo run del giorno manda ping `low` "script attivo"; data salvata in `state.__heartbeat__`
 
 ## Opzioni ricerca testo
