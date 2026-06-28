@@ -148,6 +148,15 @@ function needsPlaywright(pageConfig) {
   return pageConfig.screenshot || USE_PLAYWRIGHT_FOR.some((domain) => pageConfig.url.includes(domain));
 }
 
+// Gli header HTTP non accettano newline/caratteri di controllo. ntfy converte
+// la sequenza letterale "\n" (backslash + n) in un a-capo reale nel messaggio.
+function sanitizeHeader(value) {
+  return String(value)
+    .replace(/\r?\n/g, "\\n")
+    // rimuove eventuali altri caratteri di controllo (0x00-0x1F, 0x7F)
+    .replace(/[\x00-\x1F\x7F]/g, " ");
+}
+
 async function sendNotification({ message, title, priority = "default", tags, channel, clickUrl, screenshot }) {
   if (DRY_RUN) {
     console.log(`[dry-run] Notifica → ${title ?? "(no title)"}: ${message}${clickUrl ? ` [link: ${clickUrl}]` : ""}${screenshot ? " [con screenshot]" : ""}`);
@@ -158,26 +167,32 @@ async function sendNotification({ message, title, priority = "default", tags, ch
   const ntfyUrl = `${NTFY_BASE_URL}/${ch}`;
   const signal = AbortSignal.timeout(15000);
 
-  if (screenshot) {
-    // Invia screenshot come allegato, messaggio nell'header
-    const headers = { "Filename": "screenshot.png", "Content-Type": "image/png" };
-    if (title) headers["Title"] = title;
-    if (message) headers["Message"] = message;
-    if (priority) headers["Priority"] = priority;
-    if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
-    if (clickUrl) headers["Click"] = clickUrl;
+  try {
+    if (screenshot) {
+      // Invia screenshot come allegato, messaggio nell'header
+      const headers = { "Filename": "screenshot.png", "Content-Type": "image/png" };
+      if (title) headers["Title"] = sanitizeHeader(title);
+      if (message) headers["Message"] = sanitizeHeader(message);
+      if (priority) headers["Priority"] = priority;
+      if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
+      if (clickUrl) headers["Click"] = clickUrl;
 
-    const res = await fetch(ntfyUrl, { method: "POST", headers, body: screenshot, signal });
-    if (!res.ok) console.error(`Errore invio notifica con screenshot: ${res.status} ${res.statusText}`);
-  } else {
-    const headers = { "Content-Type": "text/plain" };
-    if (title) headers["Title"] = title;
-    if (priority) headers["Priority"] = priority;
-    if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
-    if (clickUrl) headers["Click"] = clickUrl;
+      const res = await fetch(ntfyUrl, { method: "POST", headers, body: screenshot, signal });
+      if (!res.ok) console.error(`Errore invio notifica con screenshot: ${res.status} ${res.statusText}`);
+    } else {
+      const headers = { "Content-Type": "text/plain" };
+      if (title) headers["Title"] = sanitizeHeader(title);
+      if (priority) headers["Priority"] = priority;
+      if (tags) headers["Tags"] = Array.isArray(tags) ? tags.join(",") : tags;
+      if (clickUrl) headers["Click"] = clickUrl;
 
-    const res = await fetch(ntfyUrl, { method: "POST", headers, body: message, signal });
-    if (!res.ok) console.error(`Errore invio notifica: ${res.status} ${res.statusText}`);
+      // il messaggio va nel body: i newline reali qui sono ammessi
+      const res = await fetch(ntfyUrl, { method: "POST", headers, body: message, signal });
+      if (!res.ok) console.error(`Errore invio notifica: ${res.status} ${res.statusText}`);
+    }
+  } catch (err) {
+    // Una notifica fallita non deve mai far crashare l'intero run
+    console.error(`Errore invio notifica (${title ?? "no title"}): ${err.message}`);
   }
 }
 
