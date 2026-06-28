@@ -56,6 +56,7 @@
     {
       "url": "https://www.fansale.it/tickets/all/tony-pitony/862065/21277682",
       "screenshot": true,
+      "expiresAt": "2026-07-02",
       "checks": [
         {
           "term": "posto unico",

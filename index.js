@@ -44,6 +44,8 @@ function validateConfig(cfg) {
   const VALID_PRIORITIES = ["default", "low", "min", "high", "urgent", "max"];
   const VALID_CONDITIONS = ["AND", "OR"];
 
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
   (cfg.pages ?? []).forEach((page, pi) => {
     const prefix = `pages[${pi}]`;
     if (!page.url) {
@@ -51,6 +53,8 @@ function validateConfig(cfg) {
     } else {
       try { new URL(page.url); } catch { errors.push(`${prefix}: url non valido ("${page.url}")`); }
     }
+    if (page.expiresAt && !DATE_RE.test(page.expiresAt))
+      errors.push(`${prefix}: expiresAt deve essere in formato YYYY-MM-DD`);
     if (!Array.isArray(page.checks) || page.checks.length === 0) {
       errors.push(`${prefix}: checks deve essere un array non vuoto`);
     }
@@ -58,6 +62,8 @@ function validateConfig(cfg) {
       const cp = `${prefix}.checks[${ci}]`;
       if (!check.term && !check.terms) errors.push(`${cp}: term o terms è obbligatorio`);
       if (!check.message) errors.push(`${cp}: message è obbligatorio`);
+      if (check.expiresAt && !DATE_RE.test(check.expiresAt))
+        errors.push(`${cp}: expiresAt deve essere in formato YYYY-MM-DD`);
       if (check.priority && !VALID_PRIORITIES.includes(check.priority))
         errors.push(`${cp}: priority non valida ("${check.priority}") — valori: ${VALID_PRIORITIES.join(", ")}`);
       if (check.condition && !VALID_CONDITIONS.includes(check.condition.toUpperCase()))
@@ -96,6 +102,7 @@ function cleanOrphanState(state, pages) {
     if (page._disabled) continue;
     validKeys.add(stateKey(page.url, "__error__"));
     for (const check of page.checks) {
+      if (isExpired(check.expiresAt)) continue;
       const terms = check.terms
         ? check.terms.map((t) => (typeof t === "string" ? t : t.term))
         : [check.term];
@@ -142,6 +149,14 @@ function isSilenced(checkSilenceHours) {
   return from < to
     ? hour >= from && hour < to
     : hour >= from || hour < to;
+}
+
+// expiresAt: "YYYY-MM-DD". Scaduto = oggi è OLTRE quella data (il giorno indicato
+// viene ancora eseguito; la disattivazione parte dal giorno successivo).
+function isExpired(expiresAt) {
+  if (!expiresAt) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return today > expiresAt;
 }
 
 function needsPlaywright(pageConfig) {
@@ -358,6 +373,10 @@ async function checkPage(pageConfig, browser, state, pending) {
 
   for (const check of checks) {
     const { message, title, priority, tags, channel: checkChannel, silenceHours, clickUrl, textOnly } = check;
+    if (isExpired(check.expiresAt)) {
+      console.log(`[skip]  Check scaduto il ${check.expiresAt} su ${url}: "${check.term ?? (check.terms ?? []).join("/")}"`);
+      continue;
+    }
     const channel = checkChannel ?? pageChannel;
     const searchIn = textOnly ? lowerText : lowerHtml;
     const searchInRaw = textOnly ? (text ?? "") : html;
@@ -461,6 +480,7 @@ async function main() {
   const state = loadState();
   const pages = config.pages.filter((p) => {
     if (p._disabled) { console.log(`[skip]  Pagina disabilitata: ${p.url}`); return false; }
+    if (isExpired(p.expiresAt)) { console.log(`[skip]  Pagina scaduta il ${p.expiresAt}: ${p.url}`); return false; }
     return true;
   });
   cleanOrphanState(state, pages);

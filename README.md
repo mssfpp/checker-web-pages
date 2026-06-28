@@ -77,6 +77,7 @@ Valgono per tutti i check, sovrascrivibili sul singolo check:
 | `channel` | canale globale | Canale ntfy per tutti i check della pagina |
 | `screenshot` | `false` | Se `true`, allega uno screenshot alla notifica. Abilita automaticamente Playwright anche per siti non-TicketOne |
 | `errorScreenshot` | `true` | Se `true`, allega lo screenshot della pagina alle notifiche di blocco anti-bot, per vedere cosa stava vedendo lo script. Solo per pagine via Playwright. Impostabile anche globalmente in `defaults` |
+| `expiresAt` | nessuno | Data `YYYY-MM-DD` oltre la quale la pagina viene rimossa dalla lista di controllo. Il giorno indicato viene ancora eseguito, lo skip parte dal giorno successivo. Es. `"2026-07-02"` → attiva fino al 2 luglio incluso |
 
 ### Opzioni per ogni check
 
@@ -97,6 +98,7 @@ Valgono per tutti i check, sovrascrivibili sul singolo check:
 | `terms` | ❌ | — | Array di termini per ricerca multi-termine (sostituisce `term`) |
 | `condition` | ❌ | `"AND"` | Condizione tra i termini: `AND` (tutti presenti) o `OR` (almeno uno) |
 | `textOnly` | ❌ | `false` | Se `true`, cerca solo nel testo visibile ignorando attributi HTML (src, href, class…) — evita falsi positivi da immagini o link |
+| `expiresAt` | ❌ | nessuno | Data `YYYY-MM-DD` oltre la quale questo check viene disattivato (il giorno indicato è ancora attivo). Utile per controlli temporanei |
 
 ### Gerarchia canali ntfy
 
