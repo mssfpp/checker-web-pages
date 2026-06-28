@@ -52,6 +52,20 @@
           "tags": ["tada", "ticket"]
         }
       ]
+    },
+    {
+      "url": "https://www.fansale.it/tickets/all/tony-pitony/862065/21277682",
+      "screenshot": true,
+      "checks": [
+        {
+          "term": "posto unico",
+          "textOnly": true,
+          "message": "Disponibile 'posto unico' al seguente link: https://www.fansale.it/tickets/all/tony-pitony/862065/21277682",
+          "title": "Posto unico - Tony Pitony (fansale)",
+          "priority": "high",
+          "tags": ["tada", "ticket"]
+        }
+      ]
     }
   ]
 }

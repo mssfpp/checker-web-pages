@@ -25,7 +25,7 @@ const STATE_FILE = "./state.json";
 const CONCURRENCY = config.concurrency ?? 3;
 const DRY_RUN = process.argv.includes("--dry-run");
 
-const USE_PLAYWRIGHT_FOR = ["ticketone.it"];
+const USE_PLAYWRIGHT_FOR = ["ticketone.it", "fansale.it"];
 
 const globalDefaults = {
   notifyOnce: false,
